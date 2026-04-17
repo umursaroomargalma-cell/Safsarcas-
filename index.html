@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Omar's Digit Analyzer</title>
+    <style>
+        body { background: #f0f2f5; font-family: sans-serif; margin: 0; padding-bottom: 80px; }
+        .top-bar { background: #1a237e; color: white; padding: 15px; display: flex; justify-content: space-between; font-weight: bold; }
+        .nav-menu { background: #3949ab; color: white; display: flex; font-size: 12px; }
+        .nav-menu div { padding: 12px; flex: 1; text-align: center; opacity: 0.8; }
+        .nav-menu .active { background: #1e88e5; border-bottom: 3px solid white; opacity: 1; }
+        .card { background: white; margin: 15px; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .card-header { background: #4db6ac; color: white; padding: 10px 15px; font-size: 14px; font-weight: bold; }
+        .card-body { padding: 15px; font-size: 14px; color: #333; }
+        .row { margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 8px; display: flex; justify-content: space-between; }
+        .status-bar { text-align: center; font-size: 13px; font-weight: bold; margin: 15px; color: #2c3e50; padding: 10px; background: #e3f2fd; border-radius: 5px; }
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; padding: 15px; }
+        .circle { background: white; border: 4px solid #ddd; border-radius: 50%; height: 90px; width: 90px; display: flex; flex-direction: column; align-items: center; justify-content: center; margin: auto; transition: 0.3s; }
+        .hot { border-color: #00e676; box-shadow: 0 0 15px rgba(0,230,118,0.6); background: #f1fbf5; }
+        .cold { border-color: #ff5252; background: #fff8f8; }
+        .digit { font-size: 28px; font-weight: bold; color: #222; }
+        .pct { font-size: 14px; color: #666; }
+        .footer-btn { padding: 15px; background: white; position: fixed; bottom: 0; width: 100%; border-top: 1px solid #ddd; box-sizing: border-box; z-index: 100; }
+        #runBtn { background: #4db6ac; color: white; border: none; width: 100%; padding: 15px; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="dollar-printer">
+    <div class="top-bar">
+        <span>OMAR ANALYZER</span>
+        <div>☰</div>
+    </div>
+    
+    <div class="nav-menu">
+        <div>Dashboard</div>
+        <div class="active">Bot Builder</div>
+        <div>Charts</div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">Trade Parameters</div>
+        <div class="card-body">
+            <div class="row"><span>Market:</span> <b>Volatility 100 (1s)</b></div>
+            <div class="row"><span>Type:</span> <b>Digits (Differs)</b></div>
+            <div class="row"><span>Stake:</span> <input type="number" value="10.00" style="width:60px; border:1px solid #ccc; text-align:center;"></div>
+        </div>
+    </div>
+
+    <div id="status" class="status-bar">Waiting for Deriv...</div>
+    
+    <div class="grid" id="stats-display"></div>
+
+    <div class="footer-btn">
+        <button id="runBtn" onclick="window.open('https://app.deriv.com', '_blank')">OPEN DERIV TO TRADE</button>
+    </div>
+</div>
+
+<script>
+    const TOKEN = 'pat_7eddf8e2e38f4345b3328d8d4b06e2e202a74903216fa51b8ae0b9d81717cc43';
+    const ws = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=1089');
+    let history = [];
+
+    ws.onopen = () => {
+        ws.send(JSON.stringify({ authorize: TOKEN }));
+        ws.send(JSON.stringify({ ticks: "R_100", subscribe: 1 }));
+    };
+
+    ws.onmessage = (msg) => {
+        const data = JSON.parse(msg.data);
+        if (data.tick) {
+            const lastDigit = parseInt(data.tick.quote.toString().slice(-1));
+            history.push(lastDigit);
+            if (history.length > 100) history.shift();
+            render();
+        }
+    };
+
+    function render() {
+        const counts = new Array(10).fill(0);
+        history.forEach(d => counts[d]++);
+        const max = Math.max(...counts), min = Math.min(...counts);
+        
+        let html = '';
+        for (let i = 0; i < 10; i++) {
+            const p = ((counts[i] / (history.length || 1)) * 100).toFixed(1);
+            const colorClass = counts[i] === max ? 'hot' : (counts[i] === min ? 'cold' : '');
+            html += `<div class="circle ${colorClass}">
+                        <div class="digit">${i}</div>
+                        <div class="pct">${p}%</div>
+                     </div>`;
+        }
+        document.getElementById('stats-display').innerHTML = html;
+        document.getElementById('status').innerText = `LIVE: ${history.length} ticks analyzed`;
+    }
+</script>
+
+</body>
+</html>
